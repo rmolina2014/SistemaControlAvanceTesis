@@ -1,5 +1,5 @@
 {
-  "name": "SCTT v2.0 - Sistema de Control Técnico de Tesis",
-  "description": "Sistema de gestión, auditoría y validación para proyectos de tesis WRF/Asimilación de Datos (Red PGICH).",
+  "name": "SCTT v3.0 - Sistema de Control Técnico de Tesis",
+  "description": "Sistema de gestión, auditoría y validación para proyectos de tesis con módulo ABM de cronograma.",
   "requestFramePermissions": []
 }
