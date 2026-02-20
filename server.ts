@@ -129,23 +129,28 @@ async function startServer() {
   // --- API ROUTES ---
 
   app.get("/api/structure", (req, res) => {
-    const structure = db.prepare(`
-      SELECT 
-        m.id as mes_id, m.numero_mes, m.nombre as mes_nombre,
-        s.id as semana_id, s.numero_semana, s.titulo as semana_titulo, s.closed as semana_closed,
-        a.id as actividad_id, a.descripcion as actividad_desc, a.es_critica, a.tipo as actividad_tipo,
-        t.id as tarea_id, t.descripcion as tarea_desc, t.completada as tarea_completada,
-        k.id as kpi_id, k.nombre_metrica, k.tipo_dato, k.meta_objetivo, k.valor_actual, k.es_obligatorio,
-        er.id as evidence_req_id, er.nombre_descriptivo as evidence_nombre, er.es_obligatoria, er.evidence_value
-      FROM meses m
-      JOIN semanas s ON m.id = s.mes_id
-      LEFT JOIN actividades a ON s.id = a.semana_id
-      LEFT JOIN tareas t ON a.id = t.actividad_id
-      LEFT JOIN kpis k ON t.id = k.tarea_id
-      LEFT JOIN evidencias_requeridas er ON t.id = er.tarea_id
-      ORDER BY m.numero_mes, s.id, a.orden_semanal, t.orden_actividad
-    `).all();
-    res.json(structure);
+    try {
+      const structure = db.prepare(`
+        SELECT 
+          m.id as mes_id, m.numero_mes, m.nombre as mes_nombre,
+          s.id as semana_id, s.numero_semana, s.titulo as semana_titulo, s.closed as semana_closed,
+          a.id as actividad_id, a.descripcion as actividad_desc, a.es_critica, a.tipo as actividad_tipo,
+          t.id as tarea_id, t.descripcion as tarea_desc, t.completada as tarea_completada,
+          k.id as kpi_id, k.nombre_metrica, k.tipo_dato, k.meta_objetivo, k.valor_actual, k.es_obligatorio,
+          er.id as evidence_req_id, er.nombre_descriptivo as evidence_nombre, er.es_obligatoria, er.evidence_value
+        FROM meses m
+        JOIN semanas s ON m.id = s.mes_id
+        LEFT JOIN actividades a ON s.id = a.semana_id
+        LEFT JOIN tareas t ON a.id = t.actividad_id
+        LEFT JOIN kpis k ON t.id = k.tarea_id
+        LEFT JOIN evidencias_requeridas er ON t.id = er.tarea_id
+        ORDER BY m.numero_mes, s.id, a.orden_semanal, t.orden_actividad
+      `).all();
+      res.json(structure);
+    } catch (error: any) {
+      console.error("Database error:", error);
+      res.status(500).json({ error: "Internal Server Error", details: error.message });
+    }
   });
 
   // ABM Operations
@@ -236,9 +241,13 @@ async function startServer() {
   }
 
   const PORT = 3000;
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  if (process.env.NODE_ENV !== "production" || process.env.VERCEL !== "1") {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
+  
+  return app;
 }
 
-startServer();
+export const app = startServer();

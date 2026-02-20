@@ -8,6 +8,10 @@ import { Mes } from '../types';
 export const api = {
   async getStructure(): Promise<Mes[]> {
     const response = await fetch('/api/structure');
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`API Error (${response.status}): ${text.substring(0, 100)}`);
+    }
     const raw = await response.json();
     
     // Transform flat join result into nested hierarchy
