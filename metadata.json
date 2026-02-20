@@ -1,0 +1,5 @@
+{
+  "name": "SCTT - Sistema de Control Técnico de Tareas",
+  "description": "Plataforma de gestión y seguimiento técnico de proyectos con control semanal, KPIs y exportación de reportes.",
+  "requestFramePermissions": []
+}
