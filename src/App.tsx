@@ -40,14 +40,19 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [connectionVerified, setConnectionVerified] = useState(false);
 
-  const refreshData = async () => {
+  const refreshData = async (isInitial = false) => {
     setLoading(true);
     try {
       const structure = await api.getStructure();
       setData(structure);
       if (!selectedWeekId && structure.length > 0) {
         setSelectedWeekId(structure[0].semanas[0].id);
+      }
+      if (isInitial && !connectionVerified) {
+        alert("✅ Conexión con Supabase establecida con éxito.");
+        setConnectionVerified(true);
       }
     } catch (error) {
       console.error("Error fetching data", error);
@@ -57,7 +62,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    refreshData();
+    refreshData(true);
   }, []);
 
   const weeks = useMemo(() => data.flatMap(m => m.semanas), [data]);
