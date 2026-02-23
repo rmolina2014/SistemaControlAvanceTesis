@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import { createClient } from "@supabase/supabase-js";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -14,10 +13,6 @@ const __dirname = path.dirname(__filename);
 const supabaseUrl = process.env.SUPABASE_URL || "";
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
-if (!supabaseUrl || !supabaseKey) {
-  console.warn("⚠️ Supabase environment variables are missing. API will fail.");
-}
-
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function startServer() {
@@ -31,7 +26,7 @@ async function startServer() {
       if (!supabaseUrl || !supabaseKey) {
         return res.status(500).json({ 
           error: "Configuración incompleta", 
-          details: "Faltan las variables de entorno SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en el servidor." 
+          details: "Faltan las variables de entorno SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY." 
         });
       }
 
@@ -57,46 +52,33 @@ async function startServer() {
         `)
         .order('numero_mes', { ascending: true });
 
-      if (error) {
-        console.error("Error de Supabase:", error);
-        return res.status(500).json({ 
-          error: "Error en la base de datos", 
-          details: error.message,
-          hint: "Asegúrate de haber ejecutado el script SQL en el editor de Supabase."
-        });
-      }
-
-      if (!data || data.length === 0) {
-        return res.json([]); 
-      }
+      if (error) throw error;
 
       const flattened: any[] = [];
-      data.forEach((mes: any) => {
-        mes.semanas.forEach((sem: any) => {
-          if (sem.actividades.length === 0) {
-            flattened.push({ ...mes, ...sem });
-          }
-          sem.actividades.forEach((act: any) => {
-            if (act.tareas.length === 0) {
-              flattened.push({ ...mes, ...sem, ...act });
+      if (data) {
+        data.forEach((mes: any) => {
+          mes.semanas.forEach((sem: any) => {
+            if (sem.actividades.length === 0) {
+              flattened.push({ ...mes, ...sem });
             }
-            act.tareas.forEach((tar: any) => {
-              const base = { ...mes, ...sem, ...act, ...tar };
-              
-              const kpis = tar.kpis.length > 0 ? tar.kpis : [{}];
-              const evs = tar.evidencias_requeridas.length > 0 ? tar.evidencias_requeridas : [{}];
-              
-              // This is a bit complex to flatten perfectly 1:1 with SQL join result,
-              // but the frontend transformer handles duplicates, so we can just emit rows.
-              kpis.forEach((k: any) => {
-                evs.forEach((e: any) => {
-                  flattened.push({ ...base, ...k, ...e });
+            sem.actividades.forEach((act: any) => {
+              if (act.tareas.length === 0) {
+                flattened.push({ ...mes, ...sem, ...act });
+              }
+              act.tareas.forEach((tar: any) => {
+                const base = { ...mes, ...sem, ...act, ...tar };
+                const kpis = tar.kpis.length > 0 ? tar.kpis : [{}];
+                const evs = tar.evidencias_requeridas.length > 0 ? tar.evidencias_requeridas : [{}];
+                kpis.forEach((k: any) => {
+                  evs.forEach((e: any) => {
+                    flattened.push({ ...base, ...k, ...e });
+                  });
                 });
               });
             });
           });
         });
-      });
+      }
 
       res.json(flattened);
     } catch (error: any) {
@@ -109,11 +91,9 @@ async function startServer() {
   app.post("/api/abm/:entity", async (req, res) => {
     const { entity } = req.params;
     const { usuario, ...fields } = req.body;
-
     try {
       const { data, error } = await supabase.from(entity).insert(fields).select().single();
       if (error) throw error;
-
       await supabase.from('auditoria_abm').insert({
         entidad_tipo: entity,
         entidad_id: data.id,
@@ -121,7 +101,6 @@ async function startServer() {
         valores_nuevos: fields,
         usuario: usuario || 'admin'
       });
-
       res.json({ id: data.id, message: "Created successfully" });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -131,11 +110,9 @@ async function startServer() {
   app.put("/api/abm/:entity/:id", async (req, res) => {
     const { entity, id } = req.params;
     const { usuario, ...fields } = req.body;
-
     try {
       const { error } = await supabase.from(entity).update(fields).eq('id', id);
       if (error) throw error;
-
       await supabase.from('auditoria_abm').insert({
         entidad_tipo: entity,
         entidad_id: parseInt(id),
@@ -143,7 +120,6 @@ async function startServer() {
         valores_nuevos: fields,
         usuario: usuario || 'admin'
       });
-
       res.json({ message: "Updated successfully" });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -153,11 +129,9 @@ async function startServer() {
   app.delete("/api/abm/:entity/:id", async (req, res) => {
     const { entity, id } = req.params;
     const { usuario, razon } = req.query;
-
     try {
       const { error } = await supabase.from(entity).delete().eq('id', id);
       if (error) throw error;
-
       await supabase.from('auditoria_abm').insert({
         entidad_tipo: entity,
         entidad_id: parseInt(id),
@@ -165,7 +139,6 @@ async function startServer() {
         razon_cambio: razon as string,
         usuario: (usuario as string) || 'admin'
       });
-
       res.json({ message: "Deleted successfully" });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -183,22 +156,26 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  // Vite middleware ONLY in development
+  if (process.env.NODE_ENV !== "production" && process.env.VERCEL !== "1") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.join(__dirname, "dist")));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "dist", "index.html"));
+    // Production static serving (for local production testing)
+    const distPath = path.join(__dirname, "dist");
+    app.use(express.static(distPath));
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith('/api')) return next();
+      res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
   const PORT = 3000;
-  if (process.env.NODE_ENV !== "production" || process.env.VERCEL !== "1") {
+  if (process.env.NODE_ENV !== "production" || (process.env.VERCEL !== "1" && !process.env.LAMBDA_TASK_ROOT)) {
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
@@ -207,4 +184,4 @@ async function startServer() {
   return app;
 }
 
-export const app = startServer();
+export default startServer();
