@@ -56,6 +56,9 @@ export default function App() {
       }
     } catch (error) {
       console.error("Error fetching data", error);
+      if (isInitial) {
+        alert("❌ Error al conectar con la base de datos. Por favor, verifica tu configuración de Supabase.");
+      }
     } finally {
       setLoading(false);
     }
