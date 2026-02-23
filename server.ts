@@ -28,8 +28,13 @@ async function startServer() {
 
   app.get("/api/structure", async (req, res) => {
     try {
-      // We perform a complex join using Supabase's select syntax or raw RPC if needed.
-      // For simplicity and to match previous logic, we'll fetch the main structure.
+      if (!supabaseUrl || !supabaseKey) {
+        return res.status(500).json({ 
+          error: "Configuración incompleta", 
+          details: "Faltan las variables de entorno SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en el servidor." 
+        });
+      }
+
       const { data, error } = await supabase
         .from('meses')
         .select(`
@@ -52,12 +57,19 @@ async function startServer() {
         `)
         .order('numero_mes', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error de Supabase:", error);
+        return res.status(500).json({ 
+          error: "Error en la base de datos", 
+          details: error.message,
+          hint: "Asegúrate de haber ejecutado el script SQL en el editor de Supabase."
+        });
+      }
 
-      // Flatten the Supabase nested structure to match the frontend expectation if necessary,
-      // but the frontend already has a transformer. Let's adjust the transformer in api.ts later or
-      // flatten here. Let's flatten here to maintain compatibility with existing frontend logic.
-      
+      if (!data || data.length === 0) {
+        return res.json([]); 
+      }
+
       const flattened: any[] = [];
       data.forEach((mes: any) => {
         mes.semanas.forEach((sem: any) => {
