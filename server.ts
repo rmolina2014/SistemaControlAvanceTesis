@@ -110,18 +110,25 @@ async function startServer() {
   app.put("/api/abm/:entity/:id", async (req, res) => {
     const { entity, id } = req.params;
     const { usuario, ...fields } = req.body;
+    
+    // Ensure ID is a clean integer
+    const cleanId = parseInt(id.toString().split(':')[0]);
+
     try {
-      const { error } = await supabase.from(entity).update(fields).eq('id', id);
+      const { error } = await supabase.from(entity).update(fields).eq('id', cleanId);
       if (error) throw error;
+
       await supabase.from('auditoria_abm').insert({
         entidad_tipo: entity,
-        entidad_id: parseInt(id),
+        entidad_id: cleanId,
         accion: 'UPDATE',
         valores_nuevos: fields,
         usuario: usuario || 'admin'
       });
+
       res.json({ message: "Updated successfully" });
     } catch (error: any) {
+      console.error(`Error updating ${entity}:`, error);
       res.status(400).json({ error: error.message });
     }
   });

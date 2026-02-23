@@ -22,15 +22,21 @@ export const ABMManager: React.FC<ABMManagerProps> = ({ data, onRefresh }) => {
   const handleSave = async () => {
     if (!editing) return;
     try {
+      // Sanitize data: only send valid database columns
+      const { id, tareas, kpis, evidencias, ...payload } = editing.data;
+      
+      // Map frontend names to DB names if necessary (though they should match now)
+      const cleanData = { ...payload };
+      
       if (editing.id) {
-        await api.update(editing.type, editing.id, editing.data);
+        await api.update(editing.type, editing.id, cleanData);
       } else {
-        await api.create(editing.type, { ...editing.data, [editing.type === 'actividades' ? 'semana_id' : editing.type === 'tareas' ? 'actividad_id' : 'tarea_id']: editing.parentId });
+        await api.create(editing.type, { ...cleanData, [editing.type === 'actividades' ? 'semana_id' : editing.type === 'tareas' ? 'actividad_id' : 'tarea_id']: editing.parentId });
       }
       setEditing(null);
       onRefresh();
     } catch (error) {
-      alert("Error al guardar");
+      alert("Error al guardar: " + (error instanceof Error ? error.message : "Error desconocido"));
     }
   };
 
